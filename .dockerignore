@@ -1,0 +1,34 @@
+# .dockerignore — files excluded from the Docker build context
+# This keeps the image small and avoids leaking secrets or dev artifacts.
+
+# Version control
+.git
+.gitignore
+
+# Virtual environment — deps are installed from requirements.txt during build
+venv/
+.venv/
+
+# Environment files — secrets must never be baked into the image
+.env
+*.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Test and CI artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Planning and local documentation not needed at runtime
+Planning/
+ACCESSIBILITY.md
+
+# IDE / OS artifacts
+.DS_Store
+*.swp

@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.env
+.DS_Store
+Planning/
+server.log
+.codex
+.fuse_hidden*
