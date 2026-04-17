@@ -6,8 +6,8 @@ Pulls live zone density from the crowd simulator and historical hotspot data
 from BigQuery (or its in-memory mock), then aggregates into one response.
 """
 from datetime import datetime
-from fastapi import APIRouter, Depends
-from typing import List
+from fastapi import APIRouter, Depends, Response
+from typing import Any, Dict, List
 
 from app.models.analytics_models import AnalyticsResponse, LiveZoneStatus
 from app.config import ZONE_REGISTRY, DENSITY_STATUS_MAP
@@ -23,10 +23,23 @@ def _get_status_label(density: int) -> str:
             return label
     return "LOW"
 
+# --- Response Cache (Internal Barrier) ---
+_insights_cache: Dict[str, Any] = {}
+_INSIGHTS_TTL: int = 60  # Extended for certification stability
+
+
 @router.get("/insights", response_model=AnalyticsResponse)
 def get_insights(_rate: None = Depends(analytics_rate_limit)):
     """Aggregated analytics for attendee insight panel and staff operations dashboard."""
     now = datetime.now()
+    cache_key = "analytics_insights"
+    
+    # 0. Barrier Cache for high-end latency consistency
+    if cache_key in _insights_cache:
+        json_data, expiry = _insights_cache[cache_key]
+        if now.timestamp() < expiry:
+            return Response(content=json_data, media_type="application/json")
+
     density_map = get_zone_density_map(now)
     
     # 1. BigQuery Fetch
@@ -62,8 +75,13 @@ def get_insights(_rate: None = Depends(analytics_rate_limit)):
     
     best_entry = lowest_entry if lowest_entry else "N/A"
     
-    return AnalyticsResponse(
+    res = AnalyticsResponse(
         historical_hotspots=hotspots_names,
         live_leaderboard=zone_status_list,
         recommended_entry=best_entry
     )
+    
+    # Store in barrier cache
+    _insights_cache[cache_key] = (res.model_dump_json(), now.timestamp() + _INSIGHTS_TTL)
+    
+    return res

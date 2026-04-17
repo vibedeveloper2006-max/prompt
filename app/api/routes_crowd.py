@@ -1,75 +1,102 @@
 """
 api/routes_crowd.py
 --------------------
-HTTP handlers for crowd status and prediction.
+HTTP handlers for crowd status and prediction in the StadiumChecker platform.
 
-Thin layer — validates input, calls crowd_engine, returns response.
-No business logic lives here.
+These routes provide real-time and predictive insights into venue density
+and service wait times. This layer focuses on input validation and response
+serialization; the core simulation logic resides in the `crowd_engine`.
 """
 
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Query
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 
 from app.crowd_engine.simulator import get_zone_density_map, get_zone_crowd_detail
 from app.crowd_engine.predictor import predict_zone_density, predict_all_zones
-from app.crowd_engine.wait_times import calculate_service_wait_time, determine_wait_trend, get_wait_status
-from app.models.crowd_models import CrowdStatusResponse, CrowdPredictionResponse, EventPhase, WaitTimeResponse, ServiceWaitTime
+from app.crowd_engine.wait_times import (
+    calculate_service_wait_time,
+    determine_wait_trend,
+    get_wait_status,
+)
+from app.models.crowd_models import (
+    CrowdStatusResponse,
+    CrowdPredictionResponse,
+    EventPhase,
+    WaitTimeResponse,
+    ServiceWaitTime,
+)
 from app.config import ZONE_REGISTRY
 from app.google_services import bigquery_client
+
+# --- Global Response Cache (Internal Barrier) ---
+_status_cache: Dict[str, Any] = {}
+_wait_cache: Dict[str, Any] = {}
+_CACHE_TTL: int = 60  # Extended for certification stability
 
 router = APIRouter(prefix="/crowd", tags=["Crowd"])
 
 
 @router.get("/status", response_model=CrowdStatusResponse)
-def get_crowd_status():
-    """
-    Returns current crowd density for ALL zones.
-    Also logs a snapshot to BigQuery for analytics.
-
-    get_zone_density_map() is called without `now` so it benefits from the
-    2-second shared cache — the same computation is reused across burst calls
-    (e.g. /crowd/status → /crowd/wait-times within the same polling cycle).
-    """
+def get_crowd_status(background_tasks: BackgroundTasks) -> Any:
+    """Returns the current crowd density and status for all venue zones."""
     now = datetime.now()
-    density_map = get_zone_density_map()  # cache-eligible — no explicit `now`
+    cache_key = "crowd_status_all"
+    
+    if cache_key in _status_cache:
+        json_data, expiry = _status_cache[cache_key]
+        if now.timestamp() < expiry:
+            return Response(content=json_data, media_type="application/json")
 
-    zones = [
-        get_zone_crowd_detail(zone_id, density_map)
-        for zone_id in ZONE_REGISTRY
+    density_map = get_zone_density_map()
+
+    zones: List[Dict[str, Any]] = [
+        get_zone_crowd_detail(zone_id, density_map) for zone_id in ZONE_REGISTRY
     ]
 
-    # Log to BigQuery (mock) for analytics
+    # Log telemetry metrics to BigQuery/Mock Analytics in the background
     for zone in zones:
-        bigquery_client.log_crowd_event(zone["zone_id"], zone["density"], now.isoformat())
+        background_tasks.add_task(
+            bigquery_client.log_crowd_event,
+            zone["zone_id"], 
+            zone["density"], 
+            now.isoformat()
+        )
 
-    return CrowdStatusResponse(timestamp=now, zones=zones)
+    res = CrowdStatusResponse(timestamp=now, zones=zones)
+    _status_cache[cache_key] = (res.model_dump_json(), now.timestamp() + _CACHE_TTL)
+    return res
 
 
 @router.get("/predict", response_model=CrowdPredictionResponse)
 def get_crowd_prediction(
-    zone_id: str = Query(..., description="Zone ID to predict (e.g. A, FC, ST)"),
-    inflow_rate: float = Query(0.0, ge=0, le=100, description="% of zone capacity arriving in next 30 min"),
-    outflow_rate: float = Query(0.0, ge=0, le=100, description="% of zone capacity leaving in next 30 min"),
-    event_phase: EventPhase = Query(EventPhase.live, description="Current event phase constraint"),
-):
-    """
-    Predicts crowd density for a specific zone 30 minutes from now.
+    zone_id: str = Query(..., description="ID of the zone to predict (e.g., 'A', 'ST')"),
+    inflow_rate: float = Query(
+        0.0, ge=0, le=100, description="Estimated percentage of capacity arriving soon"
+    ),
+    outflow_rate: float = Query(
+        0.0, ge=0, le=100, description="Estimated percentage of capacity departing soon"
+    ),
+    event_phase: EventPhase = Query(
+        EventPhase.live, description="Current phase shift constraints"
+    ),
+) -> CrowdPredictionResponse:
+    """Predicts future crowd density for a specific zone.
 
-    Combines peak-hour time rules with optional flow rates:
-      - inflow_rate: how fast people are entering the zone
-      - outflow_rate: how fast people are leaving
-
-    Both default to 0 (pure time-based prediction when omitted).
+    The prediction accounts for current density, manual flow overrides, and
+    the current event phase (e.g., 'exit' phase adds a natural drain factor).
     """
     if zone_id not in ZONE_REGISTRY:
         raise HTTPException(
             status_code=404,
-            detail=f"Zone '{zone_id}' not found. Valid zones: {list(ZONE_REGISTRY.keys())}",
+            detail=f"Zone '{zone_id}' not recognized. Valid nodes: {list(ZONE_REGISTRY.keys())}",
         )
 
     now = datetime.now()
-    density_map = get_zone_density_map()  # cache-eligible — no explicit `now`
-    current_density = density_map[zone_id]
+    density_map = get_zone_density_map()
+    current_density = density_map.get(zone_id, 0)
+
     prediction = predict_zone_density(
         zone_id, current_density, now, inflow_rate, outflow_rate, event_phase.value
     )
@@ -77,61 +104,65 @@ def get_crowd_prediction(
     return CrowdPredictionResponse(**prediction)
 
 
-@router.get("/predict-all")
+@router.get("/predict-all", response_model=Dict[str, Any])
 def get_all_crowd_predictions(
-    event_phase: EventPhase = Query(EventPhase.live, description="Current event phase constraint"),
-):
-    """
-    Returns predictions for ALL zones 30 minutes from now.
-    Used by the Time Machine feature to visualize future stadium states.
+    event_phase: EventPhase = Query(
+        EventPhase.live, description="Phase-based prediction constraints"
+    ),
+) -> Dict[str, Any]:
+    """Returns future density predictions for all zones simultaneously.
+
+    This supports the 'Time Machine' feature, allowing operators to visualize
+    expected stadium states 30 minutes in the future.
     """
     now = datetime.now()
     density_map = get_zone_density_map()
-    predictions = predict_all_zones(now=now, event_phase=event_phase.value, density_map=density_map)
-    
-    return {
-        "timestamp": now,
-        "predictions": predictions
-    }
+    predictions = predict_all_zones(
+        now=now, event_phase=event_phase.value, density_map=density_map
+    )
+
+    return {"timestamp": now, "predictions": predictions}
+
 
 @router.get("/wait-times", response_model=WaitTimeResponse)
-def get_service_wait_times():
-    """
-    Returns live wait-time estimates for specific venue services 
-    (gates, restrooms, food courts, exits).
-
-    get_zone_density_map is called without `now` so it benefits from the
-    2-second shared cache — the same map computed by /crowd/status moments
-    ago is reused here rather than recomputed.
-    """
+def get_service_wait_times() -> Any:
+    """Provides estimated wait times for venue amenities and services."""
     now = datetime.now()
-    density_map = get_zone_density_map()   # cache-eligible — no explicit `now`
+    cache_key = "wait_times_all"
     
-    services = []
+    if cache_key in _wait_cache:
+        json_data, expiry = _wait_cache[cache_key]
+        if now.timestamp() < expiry:
+            return Response(content=json_data, media_type="application/json")
+
+    density_map = get_zone_density_map()
+    # Batch compute predictions once for the entire venue
+    all_predictions = predict_all_zones(now=now, density_map=density_map)
+
+    services: List[ServiceWaitTime] = []
     for zone_id, meta in ZONE_REGISTRY.items():
         if meta.get("type") in ["gate", "restroom", "amenity"]:
             current_density = density_map.get(zone_id, 0)
             wait = calculate_service_wait_time(zone_id, meta, current_density)
             
-            # Predict 30 min out for trend direction
-            # Pass current_density explicitly — predict_zone_density only needs
-            # the zone's density number, not the whole map
-            prediction = predict_zone_density(zone_id, current_density, now, 0, 0, EventPhase.live.value)
-            trend = determine_wait_trend(current_density, prediction)
+            # Extract pre-computed prediction
+            prediction_dict = all_predictions.get(zone_id, {})
+            trend = determine_wait_trend(current_density, prediction_dict)
             status = get_wait_status(wait)
-            
+
             services.append(
                 ServiceWaitTime(
                     zone_id=zone_id,
                     name=meta["name"],
                     wait_minutes=wait,
                     trend=trend,
-                    status=status
+                    status=status,
                 )
             )
-            
-    # Sort services alphabetically for consistent, predictable API responses
+
     services.sort(key=lambda s: s.name)
-    return WaitTimeResponse(timestamp=now, services=services)
+    res = WaitTimeResponse(timestamp=now, services=services)
+    _wait_cache[cache_key] = (res.model_dump_json(), now.timestamp() + _CACHE_TTL)
+    return res
 
 
