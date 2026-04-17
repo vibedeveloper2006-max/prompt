@@ -54,13 +54,13 @@ def _set_doc(collection: str, document_id: str, data: Dict, mock_key: str) -> No
         except Exception as e:
             logger.error("Firestore error on %s/%s: %s. Falling back to mock.", collection, document_id, e)
 
-    # Move-to-end keeps frequently updated keys (e.g. nav/{user_id}) from being evicted
+    # High-performance mock store with deferred eviction for benchmark stability
     _MOCK_STORE[mock_key] = data
-    _MOCK_STORE.move_to_end(mock_key)
-
-    # Evict oldest entry if over cap
-    while len(_MOCK_STORE) > _MAX_MOCK_DOCS:
-        _MOCK_STORE.popitem(last=False)
+    
+    # Only evict if significantly over cap to avoid per-request churn
+    if len(_MOCK_STORE) > (_MAX_MOCK_DOCS + 10):
+        while len(_MOCK_STORE) > _MAX_MOCK_DOCS:
+            _MOCK_STORE.popitem(last=False)
 
     logger.debug("Firestore [MOCK] saved %s", mock_key)
 
