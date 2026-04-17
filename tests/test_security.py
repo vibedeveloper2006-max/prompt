@@ -109,10 +109,15 @@ class TestCorsConfiguration:
 class TestNavigationRateLimit:
     """POST /navigate/suggest is capped at 10 req/min per IP."""
     # Use a dedicated IP subnet so these tests never interfere with other suites
-    _base_ip = "10.99.0."
+    # Use a highly specific IP subnet to avoid collision with performance benchmarks
+    _base_ip = "192.168.99."
 
     def test_rate_limit_triggers_after_threshold(self):
         """11th request within the window should return 429."""
+        # Platinum Tier: Clear state to avoid pollution from other test files
+        from app.middleware.rate_limiter import navigation_rate_limit
+        navigation_rate_limit.store.clear()
+        
         headers = {"X-Forwarded-For": f"{self._base_ip}10"}
         hit_429 = False
         for _ in range(12):
@@ -149,7 +154,11 @@ class TestChatRateLimit:
     """POST /assistant/chat is capped at 20 req/min per IP."""
 
     def test_chat_rate_limit_triggers(self):
-        headers = {"X-Forwarded-For": "10.99.1.10"}
+        # Platinum Tier: Clear state
+        from app.middleware.rate_limiter import chat_rate_limit
+        chat_rate_limit.store.clear()
+        
+        headers = {"X-Forwarded-For": "192.168.100.10"}
         hit_429 = False
         for _ in range(22):
             resp = client.post(
@@ -214,7 +223,8 @@ class TestChatInputValidation:
 
 class TestNavigationInputValidation:
     # Use a dedicated IP bucket so these tests don't hit the rate limit
-    _headers = {"X-Forwarded-For": "10.99.2.10"}
+    # Use a dedicated IP bucket to avoid rate-limit depletion from other suites
+    _headers = {"X-Forwarded-For": "192.168.101.10"}
 
     def test_zone_id_too_long_rejected(self):
         """33-char zone ID exceeds max_length=32 and must return 422."""
