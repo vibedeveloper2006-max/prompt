@@ -12,7 +12,6 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Callable
 
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -69,7 +68,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 # App factory
 # ---------------------------------------------------------------------------
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(fastapi_app: FastAPI) -> AsyncGenerator[None, None]:
     """Manages application startup and shutdown events."""
     origins = settings.allowed_origins
     logger.info(

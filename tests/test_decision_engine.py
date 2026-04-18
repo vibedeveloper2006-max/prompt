@@ -4,7 +4,6 @@ tests/test_decision_engine.py
 Unit tests for scorer and router logic.
 """
 
-import pytest
 from app.decision_engine.scorer import score_zone, score_all_zones
 from app.decision_engine.router import find_best_route, estimate_wait_minutes
 from app.config import ZONE_REGISTRY
@@ -12,6 +11,7 @@ from app.models.navigation_models import Priority
 
 
 # ── Scorer ───────────────────────────────────────────────────────────────────
+
 
 class TestScorer:
     def test_low_density_gives_high_score(self):
@@ -49,6 +49,7 @@ class TestScorer:
 
 # ── Router ───────────────────────────────────────────────────────────────────
 
+
 class TestRouter:
     def _mock_scores(self, value: int = 50) -> dict:
         return {z: {"score": value, "confidence_score": value} for z in ZONE_REGISTRY}
@@ -75,7 +76,7 @@ class TestRouter:
         scores = self._mock_scores(50)
         scores["Corridor_1"]["score"] = 10  # Highly congested
         scores["Corridor_2"]["score"] = 90  # Empty
-        
+
         # Without constraints, distance might prefer Corridor_1
         # With avoid_crowd, penalty is multiplied, forcing it through Corridor_2
         route = find_best_route("A", "FC", scores, constraints=["avoid_crowd"])
@@ -86,7 +87,7 @@ class TestRouter:
         scores = self._mock_scores()
         scores["Corridor_1"]["score"] = 10  # Highly congested, but shorter route
         scores["Corridor_2"]["score"] = 90  # Empty
-        
+
         # With prefer_fastest, congestion penalty is ignored (0)
         # So it takes the absolute shortest physical distance which is Corridor_1
         route = find_best_route("A", "FC", scores, constraints=["prefer_fastest"])
@@ -96,27 +97,37 @@ class TestRouter:
         # A to ST typically prefers Corridor_2 because it's 60+100=160
         # A to Corridor_1 -> B -> Corridor_3 -> ST is 50+40+70+120=280
         # But Corridor_2 is explicitly accessible: False
-        scores = self._mock_scores(90) # Emptiness everywhere
-        
+        scores = self._mock_scores(90)  # Emptiness everywhere
+
         route_normal = find_best_route("A", "ST", scores, priority=Priority.fast_exit)
         assert "Corridor_2" in route_normal  # Normal takes the shorter path
-        
-        route_accessible = find_best_route("A", "ST", scores, priority=Priority.accessible)
-        assert "Corridor_2" not in route_accessible # Skips steep stairs
-        assert "Corridor_3" in route_accessible # Takes long detour
+
+        route_accessible = find_best_route(
+            "A", "ST", scores, priority=Priority.accessible
+        )
+        assert "Corridor_2" not in route_accessible  # Skips steep stairs
+        assert "Corridor_3" in route_accessible  # Takes long detour
 
     def test_router_family_friendly_priority(self):
         # C is not family friendly. Route from ST to Corridor_2 vs ST to C to Corridor_2
         # We can just test that the penalty behaves without asserting exact route unless it diverges
         scores = self._mock_scores(50)
-        route_family = find_best_route("ST", "A", scores, priority=Priority.family_friendly)
+        route_family = find_best_route(
+            "ST", "A", scores, priority=Priority.family_friendly
+        )
         # Should not go through C if alternative is viable
         assert "C" not in route_family
 
     def test_no_path_for_disconnected_graph(self):
         # Use a zone that has no neighbors by patching ZONE_REGISTRY temporarily
         from app.config import ZONE_REGISTRY as ZR
-        ZR["ISOLATED"] = {"name": "Isolated", "type": "test", "capacity": 0, "neighbors": {}}
+
+        ZR["ISOLATED"] = {
+            "name": "Isolated",
+            "type": "test",
+            "capacity": 0,
+            "neighbors": {},
+        }
         route = find_best_route("ISOLATED", "A", self._mock_scores())
         assert route is None
         del ZR["ISOLATED"]
@@ -125,4 +136,6 @@ class TestRouter:
         route = ["A", "FC"]
         low_density = {"A": 20, "FC": 20}
         high_density = {"A": 85, "FC": 85}
-        assert estimate_wait_minutes(route, high_density) > estimate_wait_minutes(route, low_density)
+        assert estimate_wait_minutes(route, high_density) > estimate_wait_minutes(
+            route, low_density
+        )

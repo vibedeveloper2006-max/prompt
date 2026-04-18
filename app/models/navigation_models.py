@@ -17,13 +17,14 @@ from enum import Enum
 
 from app.models.crowd_models import EventPhase
 
+
 class Priority(str, Enum):
     fast_exit = "fast_exit"
     low_crowd = "low_crowd"
     accessible = "accessible"
     family_friendly = "family_friendly"
-    fastest = "fastest" # Backward compatibility mapped to fast_exit
-    least_crowded = "least_crowded" # Backward compatibility mapped to low_crowd
+    fastest = "fastest"  # Backward compatibility mapped to fast_exit
+    least_crowded = "least_crowded"  # Backward compatibility mapped to low_crowd
 
 
 class NavigationRequest(BaseModel):
@@ -48,7 +49,7 @@ class NavigationRequest(BaseModel):
     priority: Priority = Priority.fast_exit
     event_phase: EventPhase = EventPhase.live
     constraints: Optional[List[str]] = Field(
-        default_factory=list,
+        default_factory=lambda: [],
         max_length=5,
         description="List of routing constraints like 'avoid_crowd', 'prefer_fastest'. Max 5.",
     )
@@ -58,6 +59,7 @@ class NavigationRequest(BaseModel):
         description="Optional text describing user intent or constraints. Max 256 chars.",
     )
 
+
 class ZoneScoreDetail(BaseModel):
     score: int
     confidence_score: int
@@ -65,13 +67,19 @@ class ZoneScoreDetail(BaseModel):
 
 class ReasoningSummary(BaseModel):
     density_factor: float = Field(..., description="Weight/influence of density (0-1)")
-    trend_factor: float = Field(..., description="Weight/influence of crowd trends (0-1)")
-    event_factor: float = Field(..., description="Weight/influence of event phase (0-1)")
+    trend_factor: float = Field(
+        ..., description="Weight/influence of crowd trends (0-1)"
+    )
+    event_factor: float = Field(
+        ..., description="Weight/influence of event phase (0-1)"
+    )
+
 
 class Waypoint(BaseModel):
     zone_id: str
     lat: float
     lng: float
+
 
 class NavigationResponse(BaseModel):
     user_id: str
@@ -79,11 +87,11 @@ class NavigationResponse(BaseModel):
     estimated_wait_minutes: int
     total_walking_distance_meters: int = 0
     route_waypoints: List[Waypoint] = Field(default_factory=list)
-    zone_scores: Dict[str, ZoneScoreDetail]   # zone_id → score details
+    zone_scores: Dict[str, ZoneScoreDetail]  # zone_id → score details
     reasoning_summary: ReasoningSummary
     ai_explanation: Optional[str] = None
+
 
 class RerouteAlertResponse(BaseModel):
     requires_reroute: bool
     new_navigation: Optional[NavigationResponse] = None
-

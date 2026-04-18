@@ -84,9 +84,9 @@ def make_rate_limiter(max_calls: int, window_seconds: int):
             )
 
         timestamps.append(now)
-        
+
     # Expose the internal store for testing/resetting in the benchmark harness
-    _check.store = _store
+    _check.store = _store  # type: ignore
     return _check
 
 

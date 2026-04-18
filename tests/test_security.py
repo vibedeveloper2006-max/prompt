@@ -11,7 +11,6 @@ Validates the Phase 9 security hardening:
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import settings
 from app.main import app
 
 client = TestClient(app, raise_server_exceptions=True)
@@ -37,6 +36,7 @@ _VALID_CHAT_PAYLOAD = {
 # 1. Security headers
 # ---------------------------------------------------------------------------
 
+
 class TestSecurityHeaders:
     """Every non-static response must carry the required security headers."""
 
@@ -52,7 +52,10 @@ class TestSecurityHeaders:
         assert self._get_headers().get("x-frame-options") == "DENY"
 
     def test_referrer_policy(self):
-        assert self._get_headers().get("referrer-policy") == "strict-origin-when-cross-origin"
+        assert (
+            self._get_headers().get("referrer-policy")
+            == "strict-origin-when-cross-origin"
+        )
 
     def test_content_security_policy_present(self):
         csp = self._get_headers().get("content-security-policy", "")
@@ -67,6 +70,7 @@ class TestSecurityHeaders:
 # 2. CORS origin configuration
 # ---------------------------------------------------------------------------
 
+
 class TestCorsConfiguration:
     """Ensures allowed_origins logic respects the debug flag."""
 
@@ -74,7 +78,6 @@ class TestCorsConfiguration:
         """With no ALLOWED_ORIGINS_RAW set, debug=True should yield ['*']."""
         # The test environment runs with debug=False + no raw origins by default,
         # but we can unit-test the property directly on a fresh Settings instance.
-        from pydantic_settings import BaseSettings
         from app.config import Settings
 
         # Simulate a debug settings object with no raw origins
@@ -92,13 +95,18 @@ class TestCorsConfiguration:
         """Explicit ALLOWED_ORIGINS_RAW overrides the debug default."""
         from app.config import Settings
 
-        s = Settings(debug=True, allowed_origins_raw="https://example.com,https://app.example.com")
+        s = Settings(
+            debug=True,
+            allowed_origins_raw="https://example.com,https://app.example.com",
+        )
         assert s.allowed_origins == ["https://example.com", "https://app.example.com"]
 
     def test_origins_whitespace_stripped(self):
         from app.config import Settings
 
-        s = Settings(debug=False, allowed_origins_raw="  https://a.com , https://b.com  ")
+        s = Settings(
+            debug=False, allowed_origins_raw="  https://a.com , https://b.com  "
+        )
         assert s.allowed_origins == ["https://a.com", "https://b.com"]
 
 
@@ -106,8 +114,10 @@ class TestCorsConfiguration:
 # 3. Rate limiting — navigation endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestNavigationRateLimit:
     """POST /navigate/suggest is capped at 10 req/min per IP."""
+
     # Use a dedicated IP subnet so these tests never interfere with other suites
     # Use a highly specific IP subnet to avoid collision with performance benchmarks
     _base_ip = "192.168.99."
@@ -116,8 +126,9 @@ class TestNavigationRateLimit:
         """11th request within the window should return 429."""
         # Platinum Tier: Clear state to avoid pollution from other test files
         from app.middleware.rate_limiter import navigation_rate_limit
+
         navigation_rate_limit.store.clear()
-        
+
         headers = {"X-Forwarded-For": f"{self._base_ip}10"}
         hit_429 = False
         for _ in range(12):
@@ -150,14 +161,16 @@ class TestNavigationRateLimit:
 # 4. Rate limiting — chat endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestChatRateLimit:
     """POST /assistant/chat is capped at 20 req/min per IP."""
 
     def test_chat_rate_limit_triggers(self):
         # Platinum Tier: Clear state
         from app.middleware.rate_limiter import chat_rate_limit
+
         chat_rate_limit.store.clear()
-        
+
         headers = {"X-Forwarded-For": "192.168.100.10"}
         hit_429 = False
         for _ in range(22):
@@ -175,6 +188,7 @@ class TestChatRateLimit:
 # ---------------------------------------------------------------------------
 # 5. Input validation — chat message bounds
 # ---------------------------------------------------------------------------
+
 
 class TestChatInputValidation:
     def test_empty_message_rejected(self):
@@ -220,6 +234,7 @@ class TestChatInputValidation:
 # ---------------------------------------------------------------------------
 # 6. Input validation — navigation request bounds
 # ---------------------------------------------------------------------------
+
 
 class TestNavigationInputValidation:
     # Use a dedicated IP bucket so these tests don't hit the rate limit

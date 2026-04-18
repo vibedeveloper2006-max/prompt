@@ -55,9 +55,9 @@ def _compute_time_delta(now: datetime) -> int:
     next_is_peak = _next_hour_is_peak(now)
 
     if next_is_peak and not currently_peak:
-        return +15   # Approaching a peak window — surge expected
+        return +15  # Approaching a peak window — surge expected
     if currently_peak and not next_is_peak:
-        return -12   # Leaving a peak window — dispersal expected
+        return -12  # Leaving a peak window — dispersal expected
     # Mid-peak or off-peak: small drift in the direction of the period
     return +3 if currently_peak else -3
 
@@ -128,7 +128,7 @@ def predict_zone_density(
     time_delta = _compute_time_delta(now)
     flow_delta = _compute_flow_delta(inflow_rate, outflow_rate)
     phase_delta = _compute_phase_delta(zone_id, event_phase)
-    
+
     net_delta = time_delta + flow_delta + phase_delta
 
     predicted = max(0, min(100, current_density + net_delta))

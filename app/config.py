@@ -115,7 +115,7 @@ ZONE_REGISTRY: Dict[str, Dict] = {
         "capacity": 400,
         "neighbors": {"Corridor_2": 50, "Corridor_3": 50},
         "accessible": True,
-        "family_friendly": False, # e.g. Cramped turnstiles
+        "family_friendly": False,  # e.g. Cramped turnstiles
     },
     "FC": {
         "name": "Food Court",
@@ -146,7 +146,7 @@ ZONE_REGISTRY: Dict[str, Dict] = {
         "type": "corridor",
         "capacity": 200,
         "neighbors": {"A": 60, "C": 50, "FC": 80, "ST": 100},
-        "accessible": False, # e.g. Requires stairs to bridge level
+        "accessible": False,  # e.g. Requires stairs to bridge level
         "family_friendly": False,
     },
     "Corridor_3": {
@@ -169,7 +169,7 @@ ZONE_REGISTRY: Dict[str, Dict] = {
 
 # Peak hours: congestion boost is applied in these ranges (24h format)
 PEAK_HOUR_WINDOWS = [
-    (8, 10),   # Morning rush
+    (8, 10),  # Morning rush
     (12, 14),  # Lunch
     (17, 21),  # Evening event
 ]
@@ -178,5 +178,5 @@ PEAK_HOUR_WINDOWS = [
 DENSITY_STATUS_MAP = [
     (70, "HIGH"),
     (40, "MEDIUM"),
-    (0,  "LOW"),
+    (0, "LOW"),
 ]

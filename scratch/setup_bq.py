@@ -1,14 +1,14 @@
 from google.cloud import bigquery
-import os
+
 
 def setup_bigquery():
     project_id = "stadiumchecker"
     client = bigquery.Client(project=project_id)
-    
+
     dataset_id = f"{project_id}.analytics"
     dataset = bigquery.Dataset(dataset_id)
     dataset.location = "US"
-    
+
     try:
         dataset = client.create_dataset(dataset, timeout=30)
         print(f"Created dataset {client.project}.{dataset.dataset_id}")
@@ -25,7 +25,7 @@ def setup_bigquery():
         bigquery.SchemaField("density", "INTEGER", mode="REQUIRED"),
         bigquery.SchemaField("timestamp", "TIMESTAMP", mode="REQUIRED"),
     ]
-    
+
     table = bigquery.Table(table_id, schema=schema)
     try:
         table = client.create_table(table, timeout=30)
@@ -35,6 +35,7 @@ def setup_bigquery():
             print(f"Table {table_id} already exists.")
         else:
             print(f"Failed to create table: {e}")
+
 
 if __name__ == "__main__":
     setup_bigquery()

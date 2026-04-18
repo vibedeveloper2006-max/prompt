@@ -17,11 +17,9 @@ Covers:
 """
 
 import time
-from collections import OrderedDict
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -35,6 +33,7 @@ client = TestClient(app)
 
 # ─── 1. Cache hit within the same clock-second ─────────────────────────────
 
+
 def test_density_map_cache_hit():
     """Two immediate calls with no explicit `now` must return the *same* object."""
     result1 = get_zone_density_map()
@@ -46,6 +45,7 @@ def test_density_map_cache_hit():
 def test_density_map_cache_hit_same_reference():
     """The cached path should return the same dict object (not a copy)."""
     from app.crowd_engine.cache import crowd_cache
+
     crowd_cache._store.clear()  # force a cold miss
     r1 = get_zone_density_map()
     r2 = get_zone_density_map()
@@ -54,9 +54,11 @@ def test_density_map_cache_hit_same_reference():
 
 # ─── 2. Cache bypassed for explicit `now` ──────────────────────────────────
 
+
 def test_density_map_bypasses_cache_for_explicit_now():
     """Explicit `now` must bypass cache, so tests stay deterministic."""
     from app.crowd_engine.cache import crowd_cache
+
     t = datetime(2026, 1, 1, 14, 0, 0)
     crowd_cache._store.clear()
     r1 = get_zone_density_map(now=t)
@@ -68,6 +70,7 @@ def test_density_map_bypasses_cache_for_explicit_now():
 
 
 # ─── 3. Cache hard entry cap ───────────────────────────────────────────────
+
 
 def test_ttl_cache_max_entries_bounded():
     """_TTLCache never grows beyond its max_entries limit."""
@@ -83,13 +86,14 @@ def test_ttl_cache_evicts_expired_before_cap():
     # a small sleep but the second entry is still fresh when we read it.
     cache = _TTLCache(ttl=0.05, max_entries=10)
     cache.set("a", 1)
-    time.sleep(0.06)    # "a" is now expired
-    cache.set("b", 2)   # triggers eviction of expired "a"
+    time.sleep(0.06)  # "a" is now expired
+    cache.set("b", 2)  # triggers eviction of expired "a"
     assert cache.get("a") is None
     assert cache.get("b") == 2
 
 
 # ─── 4. BigQuery deque bounded ─────────────────────────────────────────────
+
 
 def test_bigquery_mock_deque_bounded():
     """_MOCK_EVENTS deque must not grow beyond _MAX_MOCK_EVENTS."""
@@ -112,6 +116,7 @@ def test_bigquery_mock_deque_bounded():
 
 # ─── 5. BigQuery rate-gate per zone ────────────────────────────────────────
 
+
 def test_bigquery_rate_gate_suppresses_duplicates():
     """The same zone must not be logged twice within _LOG_COOLDOWN_SECONDS."""
     from app.google_services import bigquery_client
@@ -130,6 +135,7 @@ def test_bigquery_rate_gate_suppresses_duplicates():
 
 
 # ─── 6. BigQuery query_peak_zones returns highest-average-density zones ────
+
 
 def test_bigquery_query_peak_zones_correct_order():
     """query_peak_zones must return the zone with HIGHEST average density first."""
@@ -151,6 +157,7 @@ def test_bigquery_query_peak_zones_correct_order():
 
 # ─── 7. Firestore mock store bounded ───────────────────────────────────────
 
+
 def test_firestore_mock_store_bounded():
     """_MOCK_STORE (OrderedDict) should never exceed _MAX_MOCK_DOCS entries."""
     from app.google_services import firestore_client
@@ -166,14 +173,13 @@ def test_firestore_mock_store_bounded():
 
 # ─── 8. predict_all_zones accepts pre-computed density_map ─────────────────
 
+
 def test_predict_all_zones_accepts_density_map():
     """Passing density_map prevents an internal get_zone_density_map call."""
     fixed_time = datetime(2026, 6, 1, 14, 0, 0)
     prefetched = get_zone_density_map(now=fixed_time)
 
-    with patch(
-        "app.crowd_engine.predictor.get_zone_density_map"
-    ) as mock_get:
+    with patch("app.crowd_engine.predictor.get_zone_density_map") as mock_get:
         result = predict_all_zones(now=fixed_time, density_map=prefetched)
         mock_get.assert_not_called()
 
@@ -181,6 +187,7 @@ def test_predict_all_zones_accepts_density_map():
 
 
 # ─── 9. HTTP burst: /crowd/status + /crowd/wait-times share cache ──────────
+
 
 def test_crowd_endpoints_share_density_cache(monkeypatch):
     """get_zone_density_map called twice with no `now` must share one computation.
@@ -222,6 +229,7 @@ def test_crowd_endpoints_share_density_cache(monkeypatch):
 
 
 # ─── 10. /navigate/suggest latency smoke test ──────────────────────────────
+
 
 def test_suggest_navigation_latency():
     """End-to-end suggest must complete within 500 ms (without live Gemini calls)."""

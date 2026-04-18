@@ -9,6 +9,7 @@ Security bounds
 - user_id: max 64 chars — avoids log injection with very long IDs.
 - history: max 20 turns — caps context size sent to the model.
 """
+
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Optional
 
@@ -27,7 +28,7 @@ class ChatRequest(BaseModel):
         description="Track user context if needed.",
     )
     history: Optional[List[Dict[str, str]]] = Field(
-        default_factory=list,
+        default_factory=lambda: [],
         description="Array of objects e.g., {'role': 'user', 'content': 'hi'}. Max 20 turns.",
         max_length=20,
     )

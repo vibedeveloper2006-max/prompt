@@ -38,7 +38,9 @@ if settings.gemini_api_key:
     except Exception as exc:
         logger.error("Explainer: Failed to initialize Gemini model: %s", exc)
 else:
-    logger.warning("Explainer: GEMINI_API_KEY not set — returning fallback explanations.")
+    logger.warning(
+        "Explainer: GEMINI_API_KEY not set — returning fallback explanations."
+    )
 
 
 def get_ai_explanation(prompt: str) -> str:

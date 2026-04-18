@@ -40,7 +40,9 @@ def build_navigation_prompt(
         score = score_data.get("score", 0)
         confidence = score_data.get("confidence_score", 0)
         trend = predictions.get(zone_id, {}).get("trend", "STABLE")
-        zone_lines.append(f"  - {name} ({zone_id}): {density}% crowded, trend: {trend}, score: {score}/100, confidence: {confidence}%")
+        zone_lines.append(
+            f"  - {name} ({zone_id}): {density}% crowded, trend: {trend}, score: {score}/100, confidence: {confidence}%"
+        )
 
     zone_summary = "\n".join(zone_lines)
     route_str = " → ".join(
@@ -54,7 +56,9 @@ def build_navigation_prompt(
     if max_d > 75:
         vision_note = "Vision sensors detect significant friction in key segments; Dijkstra re-weighted for clearance."
     elif max_d > 50:
-        vision_note = "Kinetic sensors monitoring minor buildup; recommending steady pace."
+        vision_note = (
+            "Kinetic sensors monitoring minor buildup; recommending steady pace."
+        )
 
     prompt = f"""You are the StadiumChecker Elite Terminal. Explain this strategic traversal decision.
 Do not hallucinate. Base your explanation strictly on the provided data.
@@ -72,8 +76,8 @@ Do not hallucinate. Base your explanation strictly on the provided data.
 {zone_summary}
 
 [MISSION OBJECTIVE]
-Provide a concise, mission-critical briefing (maximum 3 sentences) justifying this path. 
-Mention the 'current density', 'predicted trend', 'vision-based findings', and the 'confidence score'. 
+Provide a concise, mission-critical briefing (maximum 3 sentences) justifying this path.
+Mention the 'current density', 'predicted trend', 'vision-based findings', and the 'confidence score'.
 Tone: Professional, high-intelligence, elite condition.
 """
     return prompt.strip()

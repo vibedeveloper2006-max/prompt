@@ -4,6 +4,7 @@ models/analytics_models.py
 Response schemas for the analytics insights endpoint.
 Powers both the attendee insight panel and the staff operations dashboard.
 """
+
 from pydantic import BaseModel, Field
 from typing import List
 
@@ -13,7 +14,9 @@ class LiveZoneStatus(BaseModel):
 
     zone_id: str = Field(..., description="Zone identifier (e.g. 'A', 'FC', 'ST')")
     name: str = Field(..., description="Human-readable zone name")
-    current_density: int = Field(..., description="Current crowd density as % of capacity (0–100)")
+    current_density: int = Field(
+        ..., description="Current crowd density as % of capacity (0–100)"
+    )
     status: str = Field(..., description="Density label: LOW | MEDIUM | HIGH")
 
 

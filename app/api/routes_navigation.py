@@ -18,9 +18,9 @@ The data pipeline for a single request:
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Request, Response
 
 from app.crowd_engine.simulator import get_zone_density_map
 from app.crowd_engine.predictor import predict_all_zones
@@ -40,6 +40,7 @@ from app.models.navigation_models import (
     ReasoningSummary,
     RerouteAlertResponse,
     Waypoint,
+    ZoneScoreDetail,
 )
 from app.models.crowd_models import EventPhase
 from app.config import ZONE_REGISTRY
@@ -89,7 +90,7 @@ def _fetch_crowd_data(
     """
     # Optimized batch fetch for density and historical patterns
     density_map = get_zone_density_map()
-    historical_peaks = bigquery_client.query_peak_zones(top_n=3)
+    _ = bigquery_client.query_peak_zones(top_n=3)
 
     predictions = predict_all_zones(
         now=now, event_phase=event_phase, density_map=density_map
@@ -109,7 +110,7 @@ def _build_navigation_response(
         density_factor=0.6, trend_factor=0.3, event_factor=0.1
     )
 
-    total_distance = 0.0
+    total_distance = 0
     waypoints: List[Waypoint] = []
 
     if route:
@@ -131,7 +132,7 @@ def _build_navigation_response(
         estimated_wait_minutes=wait_minutes,
         total_walking_distance_meters=total_distance,
         route_waypoints=waypoints,
-        zone_scores=zone_scores,
+        zone_scores={k: ZoneScoreDetail(**v) for k, v in zone_scores.items()},
         reasoning_summary=reasoning_summary,
         ai_explanation=explanation,
     )
@@ -140,6 +141,7 @@ def _build_navigation_response(
 # --- Navigation Barrier Cache ---
 _nav_cache: Dict[str, Any] = {}
 _NAV_TTL: int = 60  # Extended for certification stability
+
 
 @router.post("/suggest", response_model=NavigationResponse)
 def suggest_navigation(
@@ -152,7 +154,7 @@ def suggest_navigation(
     now = datetime.now()
     # Use .value for Enums to ensure stability (e.g., 'fast_exit' instead of 'EventPriority.fast_exit')
     cache_key = f"{request.user_id}:{request.current_zone}:{request.destination}:{request.priority.value}"
-    
+
     if cache_key in _nav_cache:
         json_data, expiry = _nav_cache[cache_key]
         if now.timestamp() < expiry:
@@ -160,9 +162,12 @@ def suggest_navigation(
 
     logger.info(
         "Navigation: Computing path for user %s (%s -> %s) [%s]",
-        request.user_id, request.current_zone, request.destination, request.priority
+        request.user_id,
+        request.current_zone,
+        request.destination,
+        request.priority,
     )
-    
+
     source = _resolve_zone_id(request.current_zone)
     dest = _resolve_zone_id(request.destination)
     now = datetime.now()
@@ -233,7 +238,7 @@ def suggest_navigation(
         zone_scores=zone_scores,
         explanation=explanation,
     )
-    
+
     # 7. Populate Barrier Cache
     _nav_cache[cache_key] = (response_obj.model_dump_json(), now.timestamp() + _NAV_TTL)
 
@@ -296,9 +301,8 @@ def get_live_alerts(
 
     # Fingerprint check for dismissal cooldown
     new_fingerprint = "-".join(new_route)
-    if (
-        user_state.get("dismissed_fingerprint") == new_fingerprint
-        and user_state.get("dismissed_at")
+    if user_state.get("dismissed_fingerprint") == new_fingerprint and user_state.get(
+        "dismissed_at"
     ):
         try:
             dismissed_at = datetime.fromisoformat(user_state["dismissed_at"])

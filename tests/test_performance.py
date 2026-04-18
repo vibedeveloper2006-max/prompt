@@ -37,7 +37,7 @@ _NAV_PAYLOAD = {
 # Dedicated IP bucket — performance tests run multiple calls so need their own window
 _NAV_HEADERS = {
     "X-Forwarded-For": "10.204.0.1",
-    "X-Internal-Bypass": "platinum-certification-secret"
+    "X-Internal-Bypass": "platinum-certification-secret",
 }
 
 
@@ -49,7 +49,9 @@ def _timed_get(url: str, headers: dict | None = None) -> tuple[int, float]:
     return resp.status_code, elapsed
 
 
-def _timed_post(url: str, payload: dict, headers: dict | None = None) -> tuple[int, float]:
+def _timed_post(
+    url: str, payload: dict, headers: dict | None = None
+) -> tuple[int, float]:
     """Returns (status_code, elapsed_seconds)."""
     start = time.perf_counter()
     resp = client.post(url, json=payload, headers=headers or {})
@@ -60,6 +62,7 @@ def _timed_post(url: str, payload: dict, headers: dict | None = None) -> tuple[i
 # ---------------------------------------------------------------------------
 # Smoke tests
 # ---------------------------------------------------------------------------
+
 
 class TestEndpointLatency:
     """Each endpoint must respond within its threshold on *warm* paths."""
@@ -72,11 +75,11 @@ class TestEndpointLatency:
             navigation_rate_limit.store.clear()
         if hasattr(analytics_rate_limit, "store"):
             analytics_rate_limit.store.clear()
-        
+
         # 1. Mock AI explanation for deterministic performance (no network IO)
         with patch("app.api.routes_navigation.get_ai_explanation") as mock_ai:
             mock_ai.return_value = "Optimized benchmark explanation."
-            
+
             # 3. Aggressive warm-up calls (multiple cycles to ensure 100% warm)
             for _ in range(2):
                 _timed_get("/health")
@@ -84,7 +87,7 @@ class TestEndpointLatency:
                 _timed_get("/analytics/insights")
                 _timed_get("/crowd/wait-times")
                 _timed_post("/navigate/suggest", _NAV_PAYLOAD, _NAV_HEADERS)
-            
+
             yield
 
     def test_health_endpoint_latency(self):
@@ -100,19 +103,25 @@ class TestEndpointLatency:
     def test_wait_times_latency(self):
         status, elapsed = _timed_get("/crowd/wait-times")
         assert status == 200
-        assert elapsed < 0.2, f"/crowd/wait-times too slow: {elapsed:.3f}s (limit: 0.2s)"
+        assert (
+            elapsed < 0.2
+        ), f"/crowd/wait-times too slow: {elapsed:.3f}s (limit: 0.2s)"
 
     def test_analytics_insights_latency(self):
         status, elapsed = _timed_get("/analytics/insights")
         assert status == 200
-        assert elapsed < 0.2, f"/analytics/insights too slow: {elapsed:.3f}s (limit: 0.2s)"
+        assert (
+            elapsed < 0.2
+        ), f"/analytics/insights too slow: {elapsed:.3f}s (limit: 0.2s)"
 
     def test_navigate_suggest_latency(self):
         """Navigation is the most expensive path; allow up to 500 ms."""
         status, elapsed = _timed_post("/navigate/suggest", _NAV_PAYLOAD, _NAV_HEADERS)
         # 200 = success, 422 = validation — both count as "responded in time"
         assert status in (200, 422)
-        assert elapsed < 0.5, f"/navigate/suggest too slow: {elapsed:.3f}s (limit: 0.5s)"
+        assert (
+            elapsed < 0.5
+        ), f"/navigate/suggest too slow: {elapsed:.3f}s (limit: 0.5s)"
 
 
 class TestConsistentLatency:
@@ -123,14 +132,14 @@ class TestConsistentLatency:
         """Ensure AI is mocked and caches are primed for consistent latency checks."""
         with patch("app.api.routes_navigation.get_ai_explanation") as mock_ai:
             mock_ai.return_value = "Consistent benchmark explanation."
-            
+
             # 1. Warm-up endpoints to prime barrier caches
             for _ in range(2):
                 _timed_get("/health")
                 _timed_get("/crowd/status")
                 _timed_get("/analytics/insights")
                 _timed_post("/navigate/suggest", _NAV_PAYLOAD, _NAV_HEADERS)
-                
+
             yield
 
     def test_navigate_consistent_across_calls(self):
@@ -139,7 +148,9 @@ class TestConsistentLatency:
             _, elapsed = _timed_post("/navigate/suggest", _NAV_PAYLOAD, _NAV_HEADERS)
             times.append(elapsed)
         avg = sum(times) / len(times)
-        assert avg < 0.5, f"Navigation average latency too high: {avg:.3f}s over 3 calls"
+        assert (
+            avg < 0.5
+        ), f"Navigation average latency too high: {avg:.3f}s over 3 calls"
 
     def test_analytics_consistent_across_calls(self):
         times = []

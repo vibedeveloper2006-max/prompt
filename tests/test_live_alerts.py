@@ -12,6 +12,7 @@ Scenarios covered
 - Dismissed alert cooldown → same reroute suppressed within 5 minutes
 - Dismissed alert expired → alert reappears after cooldown
 """
+
 from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
 from app.main import app
@@ -60,6 +61,7 @@ def clean_mock_store():
 # Basic guard tests
 # ---------------------------------------------------------------------------
 
+
 def test_no_history_returns_no_alert():
     res = client.get("/navigate/alerts/missing-user", headers=_HEADERS)
     assert res.status_code == 200
@@ -67,9 +69,10 @@ def test_no_history_returns_no_alert():
 
 
 def test_same_zone_returns_no_alert():
-    firestore_client.save_navigation_request("user-same", _nav_state(
-        source="A", destination="A", route=["A"], current_zone_index=0
-    ))
+    firestore_client.save_navigation_request(
+        "user-same",
+        _nav_state(source="A", destination="A", route=["A"], current_zone_index=0),
+    )
     res = client.get("/navigate/alerts/user-same", headers=_HEADERS)
     assert res.status_code == 200
     assert res.json()["requires_reroute"] is False
@@ -92,6 +95,7 @@ def test_no_meaningful_change_returns_no_alert(monkeypatch):
 # ---------------------------------------------------------------------------
 # Alert trigger test
 # ---------------------------------------------------------------------------
+
 
 def test_better_route_returns_alert(monkeypatch):
     from app.api import routes_navigation
@@ -119,6 +123,7 @@ def test_better_route_returns_alert(monkeypatch):
 # ---------------------------------------------------------------------------
 # Cooldown / fingerprint suppression tests
 # ---------------------------------------------------------------------------
+
 
 def test_dismissed_alert_suppressed_within_cooldown(monkeypatch):
     """Same reroute dismissed 1 minute ago must NOT reappear."""
@@ -175,6 +180,7 @@ def test_dismissed_alert_reappears_after_cooldown(monkeypatch):
 # ---------------------------------------------------------------------------
 # Accept / dismiss endpoint tests
 # ---------------------------------------------------------------------------
+
 
 def test_accept_reroute_saves_new_route():
     """POST /navigate/accept persists the accepted route."""

@@ -26,6 +26,7 @@ from app.models.crowd_models import (
     EventPhase,
     WaitTimeResponse,
     ServiceWaitTime,
+    ZoneCrowdStatus,
 )
 from app.config import ZONE_REGISTRY
 from app.google_services import bigquery_client
@@ -43,7 +44,7 @@ def get_crowd_status(background_tasks: BackgroundTasks) -> Any:
     """Returns the current crowd density and status for all venue zones."""
     now = datetime.now()
     cache_key = "crowd_status_all"
-    
+
     if cache_key in _status_cache:
         json_data, expiry = _status_cache[cache_key]
         if now.timestamp() < expiry:
@@ -51,17 +52,17 @@ def get_crowd_status(background_tasks: BackgroundTasks) -> Any:
 
     density_map = get_zone_density_map()
 
-    zones: List[Dict[str, Any]] = [
-        get_zone_crowd_detail(zone_id, density_map) for zone_id in ZONE_REGISTRY
+    zones: List[ZoneCrowdStatus] = [
+        ZoneCrowdStatus(**get_zone_crowd_detail(zone_id, density_map)) for zone_id in ZONE_REGISTRY
     ]
 
     # Log telemetry metrics to BigQuery/Mock Analytics in the background
     for zone in zones:
         background_tasks.add_task(
             bigquery_client.log_crowd_event,
-            zone["zone_id"], 
-            zone["density"], 
-            now.isoformat()
+            zone.zone_id,
+            zone.density,
+            now.isoformat(),
         )
 
     res = CrowdStatusResponse(timestamp=now, zones=zones)
@@ -71,7 +72,9 @@ def get_crowd_status(background_tasks: BackgroundTasks) -> Any:
 
 @router.get("/predict", response_model=CrowdPredictionResponse)
 def get_crowd_prediction(
-    zone_id: str = Query(..., description="ID of the zone to predict (e.g., 'A', 'ST')"),
+    zone_id: str = Query(
+        ..., description="ID of the zone to predict (e.g., 'A', 'ST')"
+    ),
     inflow_rate: float = Query(
         0.0, ge=0, le=100, description="Estimated percentage of capacity arriving soon"
     ),
@@ -129,7 +132,7 @@ def get_service_wait_times() -> Any:
     """Provides estimated wait times for venue amenities and services."""
     now = datetime.now()
     cache_key = "wait_times_all"
-    
+
     if cache_key in _wait_cache:
         json_data, expiry = _wait_cache[cache_key]
         if now.timestamp() < expiry:
@@ -144,7 +147,7 @@ def get_service_wait_times() -> Any:
         if meta.get("type") in ["gate", "restroom", "amenity"]:
             current_density = density_map.get(zone_id, 0)
             wait = calculate_service_wait_time(zone_id, meta, current_density)
-            
+
             # Extract pre-computed prediction
             prediction_dict = all_predictions.get(zone_id, {})
             trend = determine_wait_trend(current_density, prediction_dict)
@@ -164,5 +167,3 @@ def get_service_wait_times() -> Any:
     res = WaitTimeResponse(timestamp=now, services=services)
     _wait_cache[cache_key] = (res.model_dump_json(), now.timestamp() + _CACHE_TTL)
     return res
-
-

@@ -17,13 +17,15 @@ import time
 from typing import Any, Dict, Optional, Tuple
 
 _TTL_SECONDS: int = 2
-_MAX_ENTRIES: int = 64   # hard upper-bound on cache size
+_MAX_ENTRIES: int = 64  # hard upper-bound on cache size
 
 
 class _TTLCache:
     """Minimal TTL cache backed by a plain dict."""
 
-    def __init__(self, ttl: int = _TTL_SECONDS, max_entries: int = _MAX_ENTRIES) -> None:
+    def __init__(
+        self, ttl: int = _TTL_SECONDS, max_entries: int = _MAX_ENTRIES
+    ) -> None:
         self._ttl = ttl
         self._max = max_entries
         self._store: Dict[Any, Tuple[float, Any]] = {}

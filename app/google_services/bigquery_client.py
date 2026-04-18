@@ -25,6 +25,7 @@ bq_client: Optional[Any] = None
 if getattr(settings, "bigquery_enabled", False):
     try:
         from google.cloud import bigquery
+
         bq_client = bigquery.Client(
             project=settings.gcp_project_id if settings.gcp_project_id else None
         )

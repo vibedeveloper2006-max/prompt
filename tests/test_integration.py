@@ -11,7 +11,6 @@ These tests ensure:
   4. API response schemas remain stable (contract/regression tests).
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -31,7 +30,9 @@ _NAV_PAYLOAD = {
     "priority": "fast_exit",
 }
 
-_NAV_HEADERS = {"X-Forwarded-For": "10.200.0.1"}  # dedicated IP bucket for integration tests
+_NAV_HEADERS = {
+    "X-Forwarded-For": "10.200.0.1"
+}  # dedicated IP bucket for integration tests
 
 _CHAT_PAYLOAD = {
     "user_id": "integration-user-1",
@@ -42,6 +43,7 @@ _CHAT_PAYLOAD = {
 # ---------------------------------------------------------------------------
 # 1. Full attendee flow
 # ---------------------------------------------------------------------------
+
 
 class TestFullAttendeeFlow:
     """Simulates a complete attendee session: zone lookup → route → insights."""
@@ -59,8 +61,12 @@ class TestFullAttendeeFlow:
         data = resp.json()
 
         required_keys = {
-            "user_id", "recommended_route", "estimated_wait_minutes",
-            "zone_scores", "reasoning_summary", "ai_explanation",
+            "user_id",
+            "recommended_route",
+            "estimated_wait_minutes",
+            "zone_scores",
+            "reasoning_summary",
+            "ai_explanation",
         }
         assert required_keys.issubset(data.keys())
 
@@ -95,7 +101,9 @@ class TestFullAttendeeFlow:
         zones_resp = client.get("/crowd/status")
         zone_ids = {z["zone_id"] for z in zones_resp.json()["zones"]}
 
-        nav_resp = client.post("/navigate/suggest", json=_NAV_PAYLOAD, headers=_NAV_HEADERS)
+        nav_resp = client.post(
+            "/navigate/suggest", json=_NAV_PAYLOAD, headers=_NAV_HEADERS
+        )
         assert nav_resp.status_code == 200
         route = nav_resp.json()["recommended_route"]
 
@@ -120,6 +128,7 @@ class TestFullAttendeeFlow:
 # ---------------------------------------------------------------------------
 # 2. Fallback resilience
 # ---------------------------------------------------------------------------
+
 
 class TestFallbackResilience:
     """Verifies that missing credentials / unavailable services degrade gracefully."""
@@ -152,7 +161,9 @@ class TestFallbackResilience:
 
     def test_reroute_alert_for_unknown_user(self):
         """Alert endpoint must handle unknown user IDs without crashing."""
-        resp = client.get("/navigate/alerts/unknown-ghost-user-9999", headers=_NAV_HEADERS)
+        resp = client.get(
+            "/navigate/alerts/unknown-ghost-user-9999", headers=_NAV_HEADERS
+        )
         assert resp.status_code == 200
         assert resp.json()["requires_reroute"] is False
 
@@ -160,6 +171,7 @@ class TestFallbackResilience:
 # ---------------------------------------------------------------------------
 # 3. API schema contract / regression tests
 # ---------------------------------------------------------------------------
+
 
 class TestSchemaContracts:
     """
@@ -177,15 +189,21 @@ class TestSchemaContracts:
         # capacity is not surfaced in the API response — only runtime fields are checked
         required = {"zone_id", "name", "density", "status"}
         for z in zones:
-            assert required.issubset(z.keys()), f"Zone missing keys: {required - z.keys()}"
+            assert required.issubset(
+                z.keys()
+            ), f"Zone missing keys: {required - z.keys()}"
 
     def test_navigation_response_schema(self):
         resp = client.post("/navigate/suggest", json=_NAV_PAYLOAD, headers=_NAV_HEADERS)
         data = resp.json()
         top_level = {
-            "user_id", "recommended_route", "estimated_wait_minutes",
-            "total_walking_distance_meters", "route_waypoints",
-            "zone_scores", "reasoning_summary",
+            "user_id",
+            "recommended_route",
+            "estimated_wait_minutes",
+            "total_walking_distance_meters",
+            "route_waypoints",
+            "zone_scores",
+            "reasoning_summary",
         }
         assert top_level.issubset(data.keys())
 

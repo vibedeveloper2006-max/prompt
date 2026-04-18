@@ -23,7 +23,7 @@ from app.crowd_engine.predictor import (
 from app.crowd_engine.wait_times import (
     calculate_service_wait_time,
     determine_wait_trend,
-    get_wait_status
+    get_wait_status,
 )
 from app.config import ZONE_REGISTRY
 
@@ -40,7 +40,9 @@ class TestSimulator:
     def test_density_values_in_valid_range(self):
         density_map = get_zone_density_map(PEAK_TIME)
         for zone_id, density in density_map.items():
-            assert 0 <= density <= 100, f"Zone {zone_id} density out of range: {density}"
+            assert (
+                0 <= density <= 100
+            ), f"Zone {zone_id} density out of range: {density}"
 
     def test_peak_hour_detected_correctly(self):
         assert _is_peak_hour(18) is True
@@ -107,7 +109,9 @@ class TestPredictor:
         # Food court should be much busier during halftime phase
         # Baseline density at an offpeak time
         normal_res = predict_zone_density("FC", 40, OFF_PEAK_TIME, event_phase="live")
-        halftime_res = predict_zone_density("FC", 40, OFF_PEAK_TIME, event_phase="halftime")
+        halftime_res = predict_zone_density(
+            "FC", 40, OFF_PEAK_TIME, event_phase="halftime"
+        )
         assert halftime_res["predicted_density"] > normal_res["predicted_density"]
 
 
@@ -153,17 +157,23 @@ class TestFlowPredictor:
     def test_flow_increases_predicted_density(self):
         """High inflow should push predicted_density above time-only prediction."""
         baseline = predict_zone_density("A", 50, PEAK_TIME)
-        with_inflow = predict_zone_density("A", 50, PEAK_TIME, inflow_rate=20, outflow_rate=0)
+        with_inflow = predict_zone_density(
+            "A", 50, PEAK_TIME, inflow_rate=20, outflow_rate=0
+        )
         assert with_inflow["predicted_density"] > baseline["predicted_density"]
 
     def test_flow_decreases_predicted_density(self):
         """High outflow should pull predicted_density below time-only prediction."""
         baseline = predict_zone_density("A", 50, PEAK_TIME)
-        with_outflow = predict_zone_density("A", 50, PEAK_TIME, inflow_rate=0, outflow_rate=20)
+        with_outflow = predict_zone_density(
+            "A", 50, PEAK_TIME, inflow_rate=0, outflow_rate=20
+        )
         assert with_outflow["predicted_density"] < baseline["predicted_density"]
 
     def test_response_contains_flow_fields(self):
-        result = predict_zone_density("FC", 40, PEAK_TIME, inflow_rate=10, outflow_rate=3)
+        result = predict_zone_density(
+            "FC", 40, PEAK_TIME, inflow_rate=10, outflow_rate=3
+        )
         assert "inflow_rate" in result
         assert "outflow_rate" in result
         assert "flow_delta" in result
@@ -175,29 +185,39 @@ class TestFlowPredictor:
 
     def test_density_never_exceeds_100(self):
         # Density 95 + massive inflow → must clamp at 100
-        result = predict_zone_density("ST", 95, PEAK_TIME, inflow_rate=50, outflow_rate=0)
+        result = predict_zone_density(
+            "ST", 95, PEAK_TIME, inflow_rate=50, outflow_rate=0
+        )
         assert result["predicted_density"] <= 100
 
     def test_density_never_below_zero(self):
         # Density 5 + massive outflow → must clamp at 0
-        result = predict_zone_density("C", 5, OFF_PEAK_TIME, inflow_rate=0, outflow_rate=50)
+        result = predict_zone_density(
+            "C", 5, OFF_PEAK_TIME, inflow_rate=0, outflow_rate=50
+        )
         assert result["predicted_density"] >= 0
 
     # ── Trend derivation ────────────────────────────────────────────────────
 
     def test_trend_increasing_when_large_net_positive(self):
         # Off-peak time_delta = -3; inflow=30, outflow=0 → net = -3+30 = +27
-        result = predict_zone_density("B", 40, OFF_PEAK_TIME, inflow_rate=30, outflow_rate=0)
+        result = predict_zone_density(
+            "B", 40, OFF_PEAK_TIME, inflow_rate=30, outflow_rate=0
+        )
         assert result["trend"] == "INCREASING"
 
     def test_trend_decreasing_when_large_net_negative(self):
         # PEAK_TIME time_delta = +3; inflow=0, outflow=30 → net = 3-30 = -27
-        result = predict_zone_density("A", 60, PEAK_TIME, inflow_rate=0, outflow_rate=30)
+        result = predict_zone_density(
+            "A", 60, PEAK_TIME, inflow_rate=0, outflow_rate=30
+        )
         assert result["trend"] == "DECREASING"
 
     def test_trend_stable_when_flow_cancels_time_delta(self):
         # Off-peak time_delta = -3; inflow=3, outflow=0 → net = 0 (inside ±3 threshold)
-        result = predict_zone_density("FC", 50, OFF_PEAK_TIME, inflow_rate=3, outflow_rate=0)
+        result = predict_zone_density(
+            "FC", 50, OFF_PEAK_TIME, inflow_rate=3, outflow_rate=0
+        )
         assert result["trend"] == "STABLE"
 
     # ── predict_all_zones with flow_rates ────────────────────────────────────
@@ -216,11 +236,12 @@ class TestFlowPredictor:
             assert pred["outflow_rate"] == 0.0
             assert pred["flow_delta"] == 0
 
+
 class TestWaitTimes:
     def test_calculate_wait_time_gates(self):
         # 80% full gate = 30 * (0.8)^2 = 30 * 0.64 = ~19
         wait = calculate_service_wait_time("A", {"type": "gate"}, 80)
-        assert wait == int(30 * (0.8 ** 2))
+        assert wait == int(30 * (0.8**2))
 
     def test_calculate_wait_time_restrooms(self):
         # 50% full restroom = 15 * 0.5 = 7
@@ -231,7 +252,7 @@ class TestWaitTimes:
         # 100% full food court = 25 * 1.0 = 25
         wait = calculate_service_wait_time("FC", {"type": "amenity"}, 100)
         assert wait == 25
-        
+
     def test_calculate_wait_time_corridors_zero(self):
         wait = calculate_service_wait_time("Corridor_1", {"type": "corridor"}, 100)
         assert wait == 0
@@ -253,4 +274,3 @@ class TestWaitTimes:
         assert get_wait_status(2) == "LOW"
         assert get_wait_status(10) == "MODERATE"
         assert get_wait_status(20) == "HIGH"
-

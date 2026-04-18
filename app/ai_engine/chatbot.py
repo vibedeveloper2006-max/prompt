@@ -15,9 +15,8 @@ Design constraints
 - Falls back to a safety message when Gemini is unavailable or over quota.
 """
 
-import json
 import logging
-from typing import Optional
+from typing import Optional, Any
 
 import google.generativeai as genai  # noqa: PLC0415
 
@@ -29,15 +28,16 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Gemini initialisation (optional)
 # ---------------------------------------------------------------------------
+_model: Any = None
 try:
     if settings.gemini_api_key:
         genai.configure(api_key=settings.gemini_api_key)
         _model = genai.GenerativeModel(settings.gemini_model)
     else:
-        _model = None
-        logger.warning("Gemini config missing — chatbot running in structured-data-only mode.")
+        logger.warning(
+            "Gemini config missing — chatbot running in structured-data-only mode."
+        )
 except Exception as exc:
-    _model = None
     logger.error("Failed to initialise Gemini: %s", exc)
 
 
@@ -67,43 +67,102 @@ Use that context to answer — do not add information beyond it.
 # ---------------------------------------------------------------------------
 
 _ROUTE_KEYWORDS = (
-    "route", "path", "way to", "how to get", "fastest", "navigate",
-    "wait", "queue", "line", "how long", "restroom wait", "bathroom",
-    "which gate", "crowd level",
+    "route",
+    "path",
+    "way to",
+    "how to get",
+    "fastest",
+    "navigate",
+    "wait",
+    "queue",
+    "line",
+    "how long",
+    "restroom wait",
+    "bathroom",
+    "which gate",
+    "crowd level",
 )
 
 _PROHIBITED_KEYWORDS = (
-    "not allowed", "prohibited", "banned", "can i bring", "forbidden",
-    "allowed in", "items", "what can", "bring into",
+    "not allowed",
+    "prohibited",
+    "banned",
+    "can i bring",
+    "forbidden",
+    "allowed in",
+    "items",
+    "what can",
+    "bring into",
 )
 
 _BAG_KEYWORDS = ("bag", "backpack", "clear bag", "bag policy", "purse", "luggage")
 
 _ACCESSIBILITY_KEYWORDS = (
-    "wheelchair", "disabled", "accessible", "accessibility", "hearing loop",
-    "sign language", "mobility", "assistance dog", "quiet area", "ambulant",
+    "wheelchair",
+    "disabled",
+    "accessible",
+    "accessibility",
+    "hearing loop",
+    "sign language",
+    "mobility",
+    "assistance dog",
+    "quiet area",
+    "ambulant",
     "sensory",
 )
 
 _RE_ENTRY_KEYWORDS = (
-    "re-entry", "re entry", "reentry", "leave and come back",
-    "exit and return", "come back in", "go back in",
+    "re-entry",
+    "re entry",
+    "reentry",
+    "leave and come back",
+    "exit and return",
+    "come back in",
+    "go back in",
 )
 
 _RESTRICTED_KEYWORDS = (
-    "restricted", "vip", "hospitality", "media zone", "staff only",
-    "press", "pitch side", "north stand",
+    "restricted",
+    "vip",
+    "hospitality",
+    "media zone",
+    "staff only",
+    "press",
+    "pitch side",
+    "north stand",
 )
 
 _TIMING_KEYWORDS = (
-    "when does", "what time", "kick off", "kick-off", "start time",
-    "gates open", "halftime", "half time", "end time", "full time",
-    "schedule", "programme",
+    "when does",
+    "what time",
+    "kick off",
+    "kick-off",
+    "start time",
+    "gates open",
+    "halftime",
+    "half time",
+    "end time",
+    "full time",
+    "schedule",
+    "programme",
 )
 
-_TICKET_KEYWORDS = ("ticket", "qr code", "season ticket", "digital ticket", "paper ticket")
+_TICKET_KEYWORDS = (
+    "ticket",
+    "qr code",
+    "season ticket",
+    "digital ticket",
+    "paper ticket",
+)
 
-_FIRST_AID_KEYWORDS = ("first aid", "medical", "defibrillator", "emergency", "injured", "ambulance")
+_FIRST_AID_KEYWORDS = (
+    "first aid",
+    "medical",
+    "defibrillator",
+    "emergency",
+    "injured",
+    "ambulance",
+)
 
 _LOST_PROPERTY_KEYWORDS = ("lost", "found", "lost property", "missing", "left behind")
 
@@ -153,7 +212,7 @@ def _build_grounded_context(intent: str) -> str:
         return f"Restricted areas: {VENUE_POLICY['restricted_areas']}"
 
     if intent == "timing":
-        phases = "\n".join(f"- {p}" for p in EVENT_INFO["key_phases"])
+        phases = "\n".join(f"- {p}" for p in EVENT_INFO["key_phases"])  # type: ignore
         return (
             f"Event: {EVENT_INFO['event_name']}\n"
             f"Date: {EVENT_INFO['date']}\n"
@@ -177,6 +236,7 @@ def _build_grounded_context(intent: str) -> str:
 # Direct (no-Gemini) fallback responses for each intent
 # ---------------------------------------------------------------------------
 
+
 def _direct_response(intent: str) -> str:
     """Concise plain-text response from structured data when Gemini is unavailable."""
     ctx = _build_grounded_context(intent)
@@ -189,7 +249,8 @@ def _direct_response(intent: str) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_chat_response(query: str, history: list = None) -> str:
+
+def get_chat_response(query: str, history: Optional[list] = None) -> str:
     """
     Returns a grounded answer for the attendee's question.
 
@@ -230,14 +291,14 @@ def get_chat_response(query: str, history: list = None) -> str:
                 role = "user" if msg.get("role") == "user" else "model"
                 history_turns.append({"role": role, "parts": [msg.get("content", "")]})
 
-            contents = [{"role": "user", "parts": [grounded_prompt]}]
+            contents: list[Any] = [{"role": "user", "parts": [grounded_prompt]}]
             contents.extend(history_turns)
             # Re-append query so it's the final user turn
             if history_turns:
                 contents.append({"role": "user", "parts": [query]})
 
             response = _model.generate_content(
-                contents,
+                contents,  # type: ignore
                 request_options={"timeout": settings.gemini_timeout_seconds},
             )
             return response.text.strip()
@@ -262,7 +323,7 @@ def get_chat_response(query: str, history: list = None) -> str:
             f"Respond using rule 3 only."
         )
         response = _model.generate_content(
-            [{"role": "user", "parts": [unknown_prompt]}],
+            [{"role": "user", "parts": [unknown_prompt]}],  # type: ignore
             request_options={"timeout": settings.gemini_timeout_seconds},
         )
         return response.text.strip()

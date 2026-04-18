@@ -63,7 +63,7 @@ def score_zone(
         trend:           One of INCREASING | STABLE | DECREASING.
     """
     base_score = 100 - current_density
-    
+
     raw = (
         base_score
         + _calculate_trend_adjustment(trend)
@@ -71,11 +71,8 @@ def score_zone(
         + _calculate_phase_adjustment(zone_id, event_phase)
     )
     score = max(0, min(100, raw))
-    
-    return {
-        "score": score,
-        "confidence_score": _calculate_confidence(score, trend)
-    }
+
+    return {"score": score, "confidence_score": _calculate_confidence(score, trend)}
 
 
 def score_all_zones(

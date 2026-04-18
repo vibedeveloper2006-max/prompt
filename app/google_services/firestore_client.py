@@ -15,7 +15,7 @@ Optimization vs original:
 
 import logging
 from collections import OrderedDict
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,11 @@ db = None
 if getattr(settings, "firestore_enabled", False):
     try:
         from google.cloud import firestore
+
         # Uses Application Default Credentials (ADC)
-        db = firestore.Client(project=settings.gcp_project_id if settings.gcp_project_id else None)
+        db = firestore.Client(
+            project=settings.gcp_project_id if settings.gcp_project_id else None
+        )
         logger.info("Firestore client initialized.")
     except Exception as e:
         logger.warning(f"Failed to initialize Firestore (falling back to mock): {e}")
@@ -52,11 +55,16 @@ def _set_doc(collection: str, document_id: str, data: Dict, mock_key: str) -> No
             logger.debug("Firestore saved %s/%s", collection, document_id)
             return
         except Exception as e:
-            logger.error("Firestore error on %s/%s: %s. Falling back to mock.", collection, document_id, e)
+            logger.error(
+                "Firestore error on %s/%s: %s. Falling back to mock.",
+                collection,
+                document_id,
+                e,
+            )
 
     # High-performance mock store with deferred eviction for benchmark stability
     _MOCK_STORE[mock_key] = data
-    
+
     # Only evict if significantly over cap to avoid per-request churn
     if len(_MOCK_STORE) > (_MAX_MOCK_DOCS + 10):
         while len(_MOCK_STORE) > _MAX_MOCK_DOCS:
@@ -75,22 +83,26 @@ def get_user_history(user_id: str) -> Optional[Dict]:
     if db is not None:
         try:
             doc = db.collection("navigation_requests").document(user_id).get()
-            if doc.exists:
-                return doc.to_dict()
+            if doc.exists:  # type: ignore
+                return doc.to_dict()  # type: ignore
             return None
         except Exception as e:
-            logger.error("Firestore read failed for %s: %s. Falling back to mock.", user_id, e)
+            logger.error(
+                "Firestore read failed for %s: %s. Falling back to mock.", user_id, e
+            )
 
     return _MOCK_STORE.get(f"nav/{user_id}")
 
 
 def save_crowd_snapshot(snapshot: Dict) -> None:
     """Persists a crowd density snapshot (for historical analytics)."""
-    key = str(snapshot.get('timestamp', 'unknown'))
+    key = str(snapshot.get("timestamp", "unknown"))
     _set_doc("crowd_snapshots", key, snapshot, mock_key=f"crowd/{key}")
 
 
-def update_dismissed_route(user_id: str, dismissed_fingerprint: str, dismissed_at: str) -> None:
+def update_dismissed_route(
+    user_id: str, dismissed_fingerprint: str, dismissed_at: str
+) -> None:
     """Records that the user dismissed a reroute suggestion.
 
     Stores the route fingerprint and timestamp so the alerts endpoint can

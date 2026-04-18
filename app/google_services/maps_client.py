@@ -30,17 +30,28 @@ if settings.maps_enabled and settings.maps_api_key:
 # Fallback Mock Data
 # ---------------------------------------------------------------------------
 _MOCK_DISTANCES: Dict[str, int] = {
-    "A-Corridor_1": 80, "A-Corridor_2": 120, "B-Corridor_1": 90,
-    "B-Corridor_3": 100, "C-Corridor_2": 110, "C-Corridor_3": 95,
-    "FC-Corridor_1": 70, "FC-Corridor_2": 85, "ST-Corridor_2": 150,
-    "ST-Corridor_3": 130, "Corridor_3-RR_1": 40,
+    "A-Corridor_1": 80,
+    "A-Corridor_2": 120,
+    "B-Corridor_1": 90,
+    "B-Corridor_3": 100,
+    "C-Corridor_2": 110,
+    "C-Corridor_3": 95,
+    "FC-Corridor_1": 70,
+    "FC-Corridor_2": 85,
+    "ST-Corridor_2": 150,
+    "ST-Corridor_3": 130,
+    "Corridor_3-RR_1": 40,
 }
 
 _MOCK_COORDS: Dict[str, Dict[str, float]] = {
-    "A": {"lat": 12.9716, "lng": 77.5946}, "B": {"lat": 12.9720, "lng": 77.5950},
-    "C": {"lat": 12.9710, "lng": 77.5960}, "FC": {"lat": 12.9714, "lng": 77.5955},
-    "ST": {"lat": 12.9718, "lng": 77.5965}, "Corridor_1": {"lat": 12.9717, "lng": 77.5948},
-    "Corridor_2": {"lat": 12.9715, "lng": 77.5958}, "Corridor_3": {"lat": 12.9719, "lng": 77.5957},
+    "A": {"lat": 12.9716, "lng": 77.5946},
+    "B": {"lat": 12.9720, "lng": 77.5950},
+    "C": {"lat": 12.9710, "lng": 77.5960},
+    "FC": {"lat": 12.9714, "lng": 77.5955},
+    "ST": {"lat": 12.9718, "lng": 77.5965},
+    "Corridor_1": {"lat": 12.9717, "lng": 77.5948},
+    "Corridor_2": {"lat": 12.9715, "lng": 77.5958},
+    "Corridor_3": {"lat": 12.9719, "lng": 77.5957},
     "RR_1": {"lat": 12.9721, "lng": 77.5959},
 }
 
@@ -52,21 +63,25 @@ def get_walking_distance_meters(zone_a: str, zone_b: str) -> int:
             # Get coordinates for origin and destination
             origin = get_zone_coordinates(zone_a)
             dest = get_zone_coordinates(zone_b)
-            
+
             if origin and dest:
                 result = _gmaps.distance_matrix(
                     origins=[(origin["lat"], origin["lng"])],
                     destinations=[(dest["lat"], dest["lng"])],
-                    mode="walking"
+                    mode="walking",
                 )
-                
+
                 element = result["rows"][0]["elements"][0]
                 if element["status"] == "OK":
                     distance = element["distance"]["value"]
-                    logger.debug("Maps [LIVE] distance %s → %s = %d m", zone_a, zone_b, distance)
+                    logger.debug(
+                        "Maps [LIVE] distance %s → %s = %d m", zone_a, zone_b, distance
+                    )
                     return distance
         except Exception as e:
-            logger.error(f"Google Maps Distance Matrix error: {e}. Falling back to mock.")
+            logger.error(
+                f"Google Maps Distance Matrix error: {e}. Falling back to mock."
+            )
 
     # Mock Fallback
     key1 = f"{zone_a}-{zone_b}"
@@ -78,7 +93,7 @@ def get_walking_distance_meters(zone_a: str, zone_b: str) -> int:
 
 def get_zone_coordinates(zone_id: str) -> Optional[Dict[str, float]]:
     """Returns GPS coordinates for a zone. (Mock used as primary coordinate registry)."""
-    # Note: In a real deployment, we might lookup a Places ID, 
+    # Note: In a real deployment, we might lookup a Places ID,
     # but for stadium zones, we use the internal coordinate registry.
     coords = _MOCK_COORDS.get(zone_id)
     if coords is None:

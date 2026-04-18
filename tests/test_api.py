@@ -5,7 +5,6 @@ Integration tests for all API endpoints using FastAPI's TestClient.
 These do NOT call real Gemini or Google services (mocks are used automatically).
 """
 
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -61,12 +60,16 @@ class TestCrowdEndpoints:
 
 class TestNavigationEndpoint:
     def _suggest(self, current: str, dest: str, priority: str = "fastest"):
-        return client.post("/navigate/suggest", json={
-            "user_id": "test_user",
-            "current_zone": current,
-            "destination": dest,
-            "priority": priority,
-        }, headers=_NAV_HEADERS)
+        return client.post(
+            "/navigate/suggest",
+            json={
+                "user_id": "test_user",
+                "current_zone": current,
+                "destination": dest,
+                "priority": priority,
+            },
+            headers=_NAV_HEADERS,
+        )
 
     def test_suggest_returns_route(self):
         resp = self._suggest("A", "FC")
@@ -113,24 +116,28 @@ class TestNavigationEndpoint:
         assert resp.json()["recommended_route"] == ["A"]
 
     def test_suggest_end_to_end_payload(self):
-        resp = client.post("/navigate/suggest", json={
-            "user_id": "e2e_tester",
-            "current_zone": "A",
-            "destination": "FC",
-            "priority": "fastest",
-            "constraints": ["prefer_fastest"],
-            "user_note": "I just want my hotdog"
-        }, headers=_NAV_HEADERS)
-        
+        resp = client.post(
+            "/navigate/suggest",
+            json={
+                "user_id": "e2e_tester",
+                "current_zone": "A",
+                "destination": "FC",
+                "priority": "fastest",
+                "constraints": ["prefer_fastest"],
+                "user_note": "I just want my hotdog",
+            },
+            headers=_NAV_HEADERS,
+        )
+
         assert resp.status_code == 200
         data = resp.json()
-        
+
         assert "recommended_route" in data
         assert isinstance(data["recommended_route"], list)
-        
+
         assert "ai_explanation" in data
         assert isinstance(data["ai_explanation"], str)
-        
+
         assert "reasoning_summary" in data
         assert "density_factor" in data["reasoning_summary"]
         assert "trend_factor" in data["reasoning_summary"]

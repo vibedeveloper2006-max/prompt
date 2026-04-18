@@ -3,9 +3,13 @@ test_maps.py
 ------------
 Tests the venue maps integration and coordinate/distance coverage.
 """
+
 from fastapi.testclient import TestClient
 from app.main import app
-from app.google_services.maps_client import get_zone_coordinates, get_walking_distance_meters
+from app.google_services.maps_client import (
+    get_zone_coordinates,
+    get_walking_distance_meters,
+)
 from app.config import ZONE_REGISTRY
 
 client = TestClient(app)
@@ -21,7 +25,7 @@ def test_venue_maps_response():
         "current_zone": "A",
         "destination": "ST",
         "priority": "fast_exit",
-        "constraints": []
+        "constraints": [],
     }
 
     response = client.post("/navigate/suggest", json=payload, headers=_HEADERS)

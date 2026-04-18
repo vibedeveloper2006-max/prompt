@@ -1,0 +1,26 @@
+[MASTER]
+ignore=.git,scratch,tests
+
+[MESSAGES CONTROL]
+disable=
+    missing-docstring,
+    too-few-public-methods,
+    wrong-import-order,
+    invalid-name,
+    import-outside-toplevel,
+    wrong-import-position,
+    logging-fstring-interpolation,
+    assignment-from-no-return,
+    broad-exception-caught,
+    no-else-return,
+    arguments-renamed,
+    too-many-positional-arguments,
+    protected-access,
+    unused-argument,
+    line-too-long,
+    trailing-whitespace,
+    superfluous-parens,
+    too-many-arguments,
+    too-many-locals,
+    too-many-return-statements,
+    consider-using-in
