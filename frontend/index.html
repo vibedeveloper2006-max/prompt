@@ -21,16 +21,16 @@
         <div class="glow glow-3"></div>
     </div>
 
-    <header class="glass-nav">
+    <header class="glass-nav" role="banner">
         <div class="logo">
             <div class="logo-icon" aria-hidden="true">SC</div>
-            <span class="gradient-text text-glow">StadiumChecker</span>
+            <span class="gradient-text text-glow">StadiumChecker Elite</span>
         </div>
-        <nav class="nav-links" aria-label="Main Navigation">
-            <button id="staff-toggle-btn" class="chat-chip" aria-pressed="false" aria-controls="staff-view-container">Operations Control</button>
-            <span class="status-badge" id="system-status">Satellite Link Active</span>
-            <div class="user-profile" tabindex="0" role="button" aria-label="User Profile Settings">
-                <img src="assets/logo-dp.png" alt="" class="user-avatar" aria-hidden="true">
+        <nav class="nav-links" aria-label="Quick Control Navigation">
+            <button id="staff-toggle-btn" class="chat-chip" aria-pressed="false" aria-controls="staff-view-container" aria-label="Toggle Operations Dashboard">Operations Control</button>
+            <span class="status-badge" id="system-status" aria-label="System operational status">Satellite Link Active</span>
+            <div class="user-profile" tabindex="0" role="button" aria-label="Manage User Profile and Settings">
+                <img src="assets/logo-dp.png" alt="User Profile Avatar" class="user-avatar">
             </div>
         </nav>
     </header>
@@ -140,7 +140,7 @@
                     <div class="card glass-panel map-card fade-in">
                         <div class="route-header">
                             <h3 class="card-title mb-0">Venue Spatial View</h3>
-                            <div class="wait-time-badge" id="route-distance-badge">-- m</div>
+                            <div class="wait-time-badge" id="route-distance-badge" aria-label="Total walking distance">-- m</div>
                         </div>
                         <div class="map-container" id="map-venue-view" role="img" aria-label="SVG Map showing calculated navigation path">
                             <!-- SVG Map with Pulse Nodes -->
@@ -260,7 +260,7 @@
         </section>
 
         <!-- Single screen reader announcer (no duplicate) -->
-        <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        <div id="sr-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 
     </main>
 

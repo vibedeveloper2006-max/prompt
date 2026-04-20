@@ -17,10 +17,15 @@ router = APIRouter(prefix="/assistant", tags=["Assistant"])
 def handle_chat(
     request: ChatRequest,
     _rate: None = Depends(chat_rate_limit),
-):
-    """
-    Exposes conversational endpoint mapping to grounded venue rules.
-    Bounded to 500-character messages; history capped at 20 turns.
+) -> ChatResponse:
+    """Exposes conversational endpoint mapping to grounded venue rules.
+
+    Args:
+        request: The structured chat request containing message and history.
+        _rate: Rate limiter dependency.
+
+    Returns:
+        A ChatResponse containing the AI-generated reply.
     """
     reply = get_chat_response(request.message, request.history or [])
     return ChatResponse(reply=reply)

@@ -1,6 +1,7 @@
 const API_BASE = "";
 
 // --- ELITE STATE ENGINE ---
+/** @type {Object} Core application state */
 let state = {
     zoneCache: {},
     predictions: {},
@@ -14,7 +15,14 @@ let state = {
     alertInterval: null
 };
 
-// --- INITIALIZATION ---
+// Constant Map Configuration
+const gridSize = 10;
+const step = 8;
+const padding = 10;
+
+/**
+ * Main application initialization sequence.
+ */
 document.addEventListener("DOMContentLoaded", () => {
     initCore();
     setupEventListeners();
@@ -58,7 +66,10 @@ function setupEventListeners() {
     });
 }
 
-// --- TELEMETRY & API ---
+/**
+ * Fetches real-time crowd telemetry and venue insights.
+ * @returns {Promise<void>}
+ */
 async function fetchLiveTelemetry() {
     try {
         const [statusRes, waitRes, insightRes] = await Promise.all([
@@ -66,6 +77,10 @@ async function fetchLiveTelemetry() {
             fetch(`${API_BASE}/crowd/wait-times`),
             fetch(`${API_BASE}/analytics/insights`)
         ]);
+
+        if (!statusRes.ok || !waitRes.ok || !insightRes.ok) {
+            throw new Error("Critical telemetry uplink failure.");
+        }
 
         const statusData = await statusRes.json();
         const waitData = await waitRes.json();
@@ -76,6 +91,7 @@ async function fetchLiveTelemetry() {
         processInsights(insightData);
     } catch (err) {
         console.error("Telemetry failure:", err);
+        announceToScreenReader("Telemetry connection error. Retrying satellite link...");
     }
 }
 
@@ -307,11 +323,21 @@ async function handleRoutingRequest(e) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
+        
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.detail || "Computational logic branch failure.");
+        }
+
         const data = await res.json();
         renderRoutingResults(data);
         startAlertPolling();
+        
+        // Accessibility: Announce success and manage focus
+        announceToScreenReader(`Navigation calculated. Estimated wait: ${data.estimated_wait_minutes} minutes.`);
+        document.getElementById("results-header").focus();
     } catch (err) {
-        showError("Computational failure. Rerouting via secondary mesh nodes...");
+        showError(err.message || "Computational failure. Rerouting via secondary mesh nodes...");
     } finally {
         btn.disabled = false;
         spinner.classList.add("d-none");
@@ -434,10 +460,23 @@ function stopAutomatedTelemetry() {
     clearInterval(state.refreshInterval);
 }
 
+/**
+ * Utility for global screen reader announcements.
+ * @param {string} text - Message to announce.
+ */
+function announceToScreenReader(text) {
+    const announcer = document.getElementById("sr-announcer");
+    if (announcer) {
+        announcer.innerText = "";
+        setTimeout(() => { announcer.innerText = text; }, 100);
+    }
+}
+
 function showError(msg) {
     const err = document.getElementById("form-error");
     err.innerText = msg;
     err.classList.remove("d-none");
+    announceToScreenReader(`Error: ${msg}`);
     setTimeout(() => err.classList.add("d-none"), 5000);
 }
 

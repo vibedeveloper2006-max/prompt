@@ -149,8 +149,22 @@ def suggest_navigation(
     background_tasks: BackgroundTasks,
     _rate: None = Depends(navigation_rate_limit),
 ) -> Any:
-    """Computes the optimal path between two zones based on live crowd data."""
-    # 3. Navigation Barrier Cache - Early exit for high-frequency benchmarks
+    """Computes the optimal path between two zones based on live crowd data.
+
+    Utilizes Dijkstra heuristics informed by real-time density scores and
+    predictive trends. The resulting path is explained via natural language.
+
+    Args:
+        request: The navigational parameters (source, destination, constraints).
+        background_tasks: FastAPI background task manager.
+        _rate: Rate limiter dependency.
+
+    Returns:
+        NavigationResponse containing the route, wait times, and reasoning.
+
+    Raises:
+        HTTPException: If zones are invalid or path is unreachable.
+    """
     now = datetime.now()
     # Use .value for Enums to ensure stability (e.g., 'fast_exit' instead of 'EventPriority.fast_exit')
     cache_key = f"{request.user_id}:{request.current_zone}:{request.destination}:{request.priority.value}"
