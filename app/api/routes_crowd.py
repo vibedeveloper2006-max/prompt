@@ -29,12 +29,12 @@ from app.models.crowd_models import (
     ZoneCrowdStatus,
 )
 from app.config import ZONE_REGISTRY
+from app.crowd_engine.cache import _TTLCache
 from app.google_services import bigquery_client
 
-# --- Global Response Cache (Internal Barrier) ---
-_status_cache: Dict[str, Any] = {}
-_wait_cache: Dict[str, Any] = {}
-_CACHE_TTL: int = 60  # Extended for certification stability
+# --- Global Response Cache (Internal Barrier, bounded) ---
+_status_cache: _TTLCache = _TTLCache(ttl=60, max_entries=32)
+_wait_cache: _TTLCache = _TTLCache(ttl=60, max_entries=32)
 
 router = APIRouter(prefix="/crowd", tags=["Crowd"])
 
@@ -45,10 +45,9 @@ def get_crowd_status(background_tasks: BackgroundTasks) -> Any:
     now = datetime.now()
     cache_key = "crowd_status_all"
 
-    if cache_key in _status_cache:
-        json_data, expiry = _status_cache[cache_key]
-        if now.timestamp() < expiry:
-            return Response(content=json_data, media_type="application/json")
+    cached = _status_cache.get(cache_key)
+    if cached is not None:
+        return Response(content=cached, media_type="application/json")
 
     density_map = get_zone_density_map()
 
@@ -66,7 +65,7 @@ def get_crowd_status(background_tasks: BackgroundTasks) -> Any:
         )
 
     res = CrowdStatusResponse(timestamp=now, zones=zones)
-    _status_cache[cache_key] = (res.model_dump_json(), now.timestamp() + _CACHE_TTL)
+    _status_cache.set(cache_key, res.model_dump_json())
     return res
 
 
@@ -133,10 +132,9 @@ def get_service_wait_times() -> Any:
     now = datetime.now()
     cache_key = "wait_times_all"
 
-    if cache_key in _wait_cache:
-        json_data, expiry = _wait_cache[cache_key]
-        if now.timestamp() < expiry:
-            return Response(content=json_data, media_type="application/json")
+    cached = _wait_cache.get(cache_key)
+    if cached is not None:
+        return Response(content=cached, media_type="application/json")
 
     density_map = get_zone_density_map()
     # Batch compute predictions once for the entire venue
@@ -165,5 +163,5 @@ def get_service_wait_times() -> Any:
 
     services.sort(key=lambda s: s.name)
     res = WaitTimeResponse(timestamp=now, services=services)
-    _wait_cache[cache_key] = (res.model_dump_json(), now.timestamp() + _CACHE_TTL)
+    _wait_cache.set(cache_key, res.model_dump_json())
     return res

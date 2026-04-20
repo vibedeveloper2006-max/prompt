@@ -15,6 +15,7 @@ from app.config import ZONE_REGISTRY, DENSITY_STATUS_MAP
 from app.google_services import bigquery_client
 from app.crowd_engine.simulator import get_zone_density_map
 from app.middleware.rate_limiter import analytics_rate_limit
+from app.crowd_engine.cache import _TTLCache
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -26,9 +27,8 @@ def _get_status_label(density: int) -> str:
     return "LOW"
 
 
-# --- Response Cache (Internal Barrier) ---
-_insights_cache: Dict[str, Any] = {}
-_INSIGHTS_TTL: int = 60  # Extended for certification stability
+# --- Response Cache (Internal Barrier, bounded) ---
+_insights_cache: _TTLCache = _TTLCache(ttl=60, max_entries=32)
 
 
 @router.get("/insights", response_model=AnalyticsResponse)
@@ -38,10 +38,9 @@ def get_insights(_rate: None = Depends(analytics_rate_limit)):
     cache_key = "analytics_insights"
 
     # 0. Barrier Cache for high-end latency consistency
-    if cache_key in _insights_cache:
-        json_data, expiry = _insights_cache[cache_key]
-        if now.timestamp() < expiry:
-            return Response(content=json_data, media_type="application/json")
+    cached = _insights_cache.get(cache_key)
+    if cached is not None:
+        return Response(content=cached, media_type="application/json")
 
     density_map = get_zone_density_map(now)
 
@@ -91,9 +90,6 @@ def get_insights(_rate: None = Depends(analytics_rate_limit)):
     )
 
     # Store in barrier cache
-    _insights_cache[cache_key] = (
-        res.model_dump_json(),
-        now.timestamp() + _INSIGHTS_TTL,
-    )
+    _insights_cache.set(cache_key, res.model_dump_json())
 
     return res

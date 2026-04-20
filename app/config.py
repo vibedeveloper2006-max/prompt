@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     app_name: str = "StadiumChecker"
-    app_version: str = "1.0.0"
+    app_version: str = "1.2.0"
     debug: bool = False
 
     @field_validator("debug", mode="before")

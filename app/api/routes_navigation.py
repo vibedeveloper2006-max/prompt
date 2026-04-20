@@ -44,6 +44,7 @@ from app.models.navigation_models import (
 )
 from app.models.crowd_models import EventPhase
 from app.config import ZONE_REGISTRY
+from app.crowd_engine.cache import _TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +139,8 @@ def _build_navigation_response(
     )
 
 
-# --- Navigation Barrier Cache ---
-_nav_cache: Dict[str, Any] = {}
-_NAV_TTL: int = 60  # Extended for certification stability
+# --- Navigation Barrier Cache (bounded, auto-evicting) ---
+_nav_cache: _TTLCache = _TTLCache(ttl=60, max_entries=128)
 
 
 @router.post("/suggest", response_model=NavigationResponse)
@@ -155,10 +155,9 @@ def suggest_navigation(
     # Use .value for Enums to ensure stability (e.g., 'fast_exit' instead of 'EventPriority.fast_exit')
     cache_key = f"{request.user_id}:{request.current_zone}:{request.destination}:{request.priority.value}"
 
-    if cache_key in _nav_cache:
-        json_data, expiry = _nav_cache[cache_key]
-        if now.timestamp() < expiry:
-            return Response(content=json_data, media_type="application/json")
+    cached = _nav_cache.get(cache_key)
+    if cached is not None:
+        return Response(content=cached, media_type="application/json")
 
     logger.info(
         "Navigation: Computing path for user %s (%s -> %s) [%s]",
@@ -240,7 +239,7 @@ def suggest_navigation(
     )
 
     # 7. Populate Barrier Cache
-    _nav_cache[cache_key] = (response_obj.model_dump_json(), now.timestamp() + _NAV_TTL)
+    _nav_cache.set(cache_key, response_obj.model_dump_json())
 
     return response_obj
 

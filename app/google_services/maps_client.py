@@ -99,3 +99,17 @@ def get_zone_coordinates(zone_id: str) -> Optional[Dict[str, float]]:
     if coords is None:
         logger.warning("Maps: no coordinates for zone '%s'", zone_id)
     return coords
+
+
+def get_maps_status() -> str:
+    """Returns the current Maps SDK integration status.
+
+    Returns:
+        "enabled"  — real Google Maps client is active.
+        "disabled" — Maps is not configured (mock data in use).
+    """
+    if _gmaps is not None:
+        return "enabled"
+    if settings.maps_enabled and settings.maps_api_key:
+        return "error"
+    return "disabled"

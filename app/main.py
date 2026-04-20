@@ -54,6 +54,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "connect-src 'self'; "
             "frame-ancestors 'none';"
         ),
+        # Permissions Policy: disable sensitive browser features not needed by the app.
+        "Permissions-Policy": (
+            "camera=(), microphone=(), geolocation=(self), "
+            "payment=(), usb=(), interest-cohort=()"
+        ),
+        # Cross-Origin isolation — prevents cross-origin attacks via window.opener
+        "Cross-Origin-Opener-Policy": "same-origin",
+        # Prevent other origins from embedding our resources
+        "Cross-Origin-Resource-Policy": "same-origin",
     }
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:

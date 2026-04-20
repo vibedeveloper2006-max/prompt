@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="StadiumChecker Elite — AI-powered crowd-aware navigation for large venues. Get real-time route suggestions, density predictions, and wait times powered by Gemini and Dijkstra heuristics.">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="/">
     <title>StadiumChecker | Elite Condition Intelligence</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -90,15 +94,17 @@
                         </div>
 
                         <div class="input-field">
-                            <label>Heuristic Overrides</label>
-                            <div class="checkbox-group">
-                                <label class="checkbox-label" for="constraint-avoid">
-                                    <input type="checkbox" id="constraint-avoid"> Zero-Crowd Preference
-                                </label>
-                                <label class="checkbox-label" for="constraint-fastest">
-                                    <input type="checkbox" id="constraint-fastest"> Pure Distance Metric
-                                </label>
-                            </div>
+                            <fieldset>
+                                <legend>Heuristic Overrides</legend>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label" for="constraint-avoid">
+                                        <input type="checkbox" id="constraint-avoid"> Zero-Crowd Preference
+                                    </label>
+                                    <label class="checkbox-label" for="constraint-fastest">
+                                        <input type="checkbox" id="constraint-fastest"> Pure Distance Metric
+                                    </label>
+                                </div>
+                            </fieldset>
                         </div>
                     </fieldset>
 
@@ -108,7 +114,7 @@
                             <span>Predictive Intelligence</span>
                             <span id="time-display" style="color: var(--accent-blue);">Live Now</span>
                         </label>
-                        <input type="range" id="time-slider" min="0" max="60" step="15" value="0" style="margin-top: 0.5rem; cursor: pointer;" />
+                        <input type="range" id="time-slider" min="0" max="60" step="15" value="0" style="margin-top: 0.5rem; cursor: pointer;" aria-describedby="time-slider-help" />
                         <p id="time-slider-help" style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.5rem;">Visualizing future crowd shifts based on match phase.</p>
                     </div>
 
@@ -171,7 +177,7 @@
                             <h3 id="vision-title" class="card-title" style="color: var(--accent-purple);">
                                 <span class="ai-sparkle" aria-hidden="true">👁️</span> Situation Room
                             </h3>
-                            <p style="font-size: 0.8rem; color: var(--text-dim);">Real-time CCTV Vision & Risk Analysis</p>
+                            <p style="font-size: 0.8rem; color: var(--text-dim);">Real-time CCTV Vision &amp; Risk Analysis</p>
                         </div>
                         <div id="vision-room-content" class="ai-text">
                             <div class="loading-bar" style="height: 2px; background: var(--accent-purple); width: 100%; opacity: 0.3; margin-bottom: 1rem;"></div>
@@ -253,7 +259,8 @@
             </div>
         </section>
 
-        <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
+        <!-- Single screen reader announcer (no duplicate) -->
+        <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     </main>
 
@@ -263,31 +270,28 @@
             <span>v1.2.0 | High Availability Engine Ready</span>
         </div>
     </footer>
-
-        <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
-
-    </main>
     
     <!-- Proactive Assistant Widget -->
     <button id="chat-toggle-btn" class="chat-toggle-btn" aria-label="Open Event Assistant" aria-expanded="false">
-        <span>🤖</span>
+        <span aria-hidden="true">🤖</span>
     </button>
-    <div id="chat-widget" class="chat-widget glass-panel d-none" role="dialog" aria-labelledby="chat-title">
+    <div id="chat-widget" class="chat-widget glass-panel d-none" role="dialog" aria-modal="true" aria-labelledby="chat-title">
         <div class="chat-header">
             <h3 id="chat-title" class="m-0 accent-gradient-text" style="font-size:1.2rem;">Elite Assistant</h3>
             <button id="chat-close-btn" class="chat-close-btn" aria-label="Close Assistant">✖</button>
         </div>
-        <div id="chat-feed" class="chat-feed" aria-live="polite">
+        <div id="chat-feed" class="chat-feed" aria-live="polite" aria-atomic="false">
             <div class="chat-msg ai-msg">
                 Welcome to the Elite Terminal. I am your context-aware venue assistant. How can I facilitate your experience today?
             </div>
         </div>
-        <div class="chat-suggestions">
+        <div class="chat-suggestions" role="group" aria-label="Quick question suggestions">
             <button class="chat-chip">Security Policy</button>
             <button class="chat-chip">Accessible Exits</button>
             <button class="chat-chip">Food Court Queue</button>
         </div>
         <form id="chat-form" class="chat-input-area">
+            <label for="chat-input" class="sr-only">Type your message</label>
             <input type="text" id="chat-input" placeholder="Initiate query..." required aria-label="Message the assistant" />
             <button type="submit" class="btn primary-btn" style="min-height:40px;">Send</button>
         </form>
